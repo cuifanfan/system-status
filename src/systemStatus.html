@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/systemStatus.css">
+</head>
+
+<body>
+    <div id="root"></div>
+    <script src="js/flexible.js"></script>
+    <script src="js/react.production.min.js"></script>
+    <script src="js/react-dom.production.min.js"></script>
+    <script src="js/babel.min.js"></script>
+    <script src="js/data.js"></script>
+    <script type="text/babel">
+
+        function deepSearch(obj, target, handler) {
+            for (let key in obj) {
+                if (obj[key].name === target.name) {
+                    obj[key] = target;
+                    handler && handler();
+                    return;
+                }
+                obj[key].subItems && obj[key].subItems.forEach(subItem => {
+                    deepSearch(subItem, target, handler);
+                });
+            }
+        }
+
+        let updateStatus = null;
+        function initSystemStatus(data) {
+            function Processor({ data, className, setShowMessage, setMessageInfo }) {
+                const { status, name, desc, enable, subItems } = data;
+                if (enable === 0) {
+                    return null;
+                }
+                const Cameras = subItems && subItems.filter(({ enable }) => enable).map(childInfo =>
+                    <Camera
+                        setShowMessage={setShowMessage}
+                        setMessageInfo={setMessageInfo}
+                        data={childInfo}
+                    />
+                )
+                function handleCameraClick() {
+                    if (status === 0) {
+                        setShowMessage(true)
+                        setMessageInfo({ name, desc, status })
+                    }
+                }
+                const statusPointClassName = status === 0 ? 'system-item-status-fail' : 'system-item-status-success';
+                const statusTitleClassName = status === 0 ? 'system-item-title-fail' : 'system-item-title-success';
+                return (
+                    <div className={`system-processor ${className}`} >
+                        <div className="system-processor-line"></div>
+                        <div class="system-processor-item">
+                            <div className="system-item-icon">
+                                <img src="./test.png" alt="" />
+                            </div>
+                            <div className={statusTitleClassName} onClick={handleCameraClick}>
+                                <span>{name}</span>
+                                <span className={statusPointClassName}></span>
+                            </div>
+                        </div>
+                        <div className="system-processor-camera">{Cameras}</div>
+                    </div>
+                )
+            }
+            function Message({ title, showMessage, children, setShowMessage }) {
+                return (
+                    <div className="message" style={{ visibility: showMessage ? 'visible' : 'hidden' }}>
+                        <div className="message-tip">
+                            <span className="message-title">{title}</span>
+                            <span className="message-cancel" onClick={() => setShowMessage(false)}>×</span>
+                        </div>
+                        <div className="message-body">{children}</div>
+                    </div>
+                )
+            }
+            // 相机 & 控制盒子组件
+            function Camera({ data, setShowMessage, setMessageInfo }) {
+                const { name, status, desc } = data;
+                const statusPointClassName = status === 0 ? 'system-item-status-fail' : 'system-item-status-success';
+                const statusTitleClassName = status === 0 ? 'system-item-title-fail' : 'system-item-title-success';
+
+                function handleCameraClick(status, name, desc) {
+                    if (status === 0) {
+                        setShowMessage(true)
+                        setMessageInfo({ name, desc, status })
+                    }
+                }
+
+                return (
+                    <div className="system-item">
+                        <div className="system-item-line"></div>
+                        <div className="system-item-icon">
+                            <img src="./test.png" alt="" />
+                        </div>
+                        <div className={statusTitleClassName} onClick={() => handleCameraClick(status, name, desc)}>
+                            <span>{name}</span>
+                            <span className={statusPointClassName}></span>
+                        </div>
+                    </div>
+                )
+            }
+            function SystemStatus() {
+                const [showMessage, setShowMessage] = React.useState(false);
+                const [systemStatus, setSystemStatus] = React.useState(data);
+                const [messageInfo, setMessageInfo] = React.useState({ name: '', desc: '', status: 0 });
+
+                updateStatus = (info) => {
+                    const target = Object.values(info)[0];
+                    deepSearch(systemStatus, target, () => {
+                        
+                        // initSystemStatus(systemStatus)
+                        ReactDOM.flushSync(() => {
+                            setSystemStatus(systemStatus);
+                        });
+                    });
+                }
+
+                const Processors = systemStatus.processors.filter(({ enable }) => enable).map((processor, index, array) => {
+                    const lastClassName = (index + 1) === array.length ? 'last-system-processors' : '';
+                    return (
+                        <Processor
+                            setShowMessage={setShowMessage}
+                            setMessageInfo={setMessageInfo}
+                            className={lastClassName}
+                            data={processor}>
+                        </Processor>
+                    );
+                });
+
+                return (
+                    <div className="system-status">
+                        <div class="system-status-top">
+                            <div className="system-accuanalyzer system-processor">
+                                <Processor
+                                    className="system-control"
+                                    setShowMessage={setShowMessage}
+                                    setMessageInfo={setMessageInfo}
+                                    data={systemStatus.dataPlatform}>
+                                </Processor>
+                                <Processor
+                                    className="system-control"
+                                    setShowMessage={setShowMessage}
+                                    setMessageInfo={setMessageInfo}
+                                    data={systemStatus.dataDockService}>
+                                </Processor>
+                            </div>
+                            <Processor
+                                className="system-control system-main-control"
+                                setShowMessage={setShowMessage}
+                                setMessageInfo={setMessageInfo}
+                                data={systemStatus.mainControl}>
+                            </Processor>
+                            <Processor
+                                className="system-control system-ups"
+                                setShowMessage={setShowMessage}
+                                setMessageInfo={setMessageInfo}
+                                data={systemStatus.ups}>
+                            </Processor>
+                        </div>
+
+                        <div class="system-status-bottom">
+                            {Processors}
+                            <Processor
+                                className="system-control"
+                                setShowMessage={setShowMessage}
+                                setMessageInfo={setMessageInfo}
+                                data={systemStatus.controlBox}>
+                            </Processor>;
+                        </div>
+                        <div class="system-status-gatestation">
+                            <Processor
+                                className="system-control"
+                                setShowMessage={setShowMessage}
+                                setMessageInfo={setMessageInfo}
+                                data={systemStatus.gateStation}>
+                            </Processor>
+                        </div>
+                        <Message
+                            title="故障信息"
+                            setShowMessage={setShowMessage}
+                            showMessage={showMessage}>
+                            <div className="system-status-error-name">
+                                <span className={messageInfo.status ? 'system-status-error-icon' : 'system-status-success-icon'}></span>
+                                <span className="system-status-error-tip">{messageInfo.name}</span>
+                            </div>
+                            <div className="system-status-error-desc">{messageInfo.desc}</div>
+                        </Message>
+                    </div>
+                );
+            }
+            ReactDOM.render(<SystemStatus />, document.getElementById('root'));
+        }
+        initSystemStatus(data)
+        setTimeout(() => {
+            updateStatus({ ups: { name: 'UPS', status: 1, desc: 'UPS故障', enable: 1 } });
+        }, 1000)
+    </script>
+</body>
+
+</html>
